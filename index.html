@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LEGO Tube</title>
+<style>
+body{margin:0;font-family:Arial;background:#111;color:white}
+header{background:red;padding:10px;display:flex;justify-content:space-between;align-items:center}
+.container{display:flex}
+.sidebar{width:200px;background:#000;padding:15px}
+.sidebar button{display:block;width:100%;margin-bottom:10px;padding:10px;background:#222;color:white;border:none;border-radius:8px;text-align:left}
+.video{background:#222;margin:10px;padding:10px;border-radius:10px;cursor:pointer}
+.video img{width:100%;border-radius:8px}
+.page{display:none;padding:20px}
+button{padding:10px;border:none;border-radius:8px;background:red;color:white;margin:5px}
+input{padding:8px;border-radius:8px;border:none;margin:5px}
+.comment{background:#333;margin:5px;padding:5px;border-radius:6px}
+.liveBox{border:2px solid red;padding:10px;border-radius:10px;margin:10px 0}
+</style>
+</head>
+
+<body>
+
+<header>
+<b>🧱 LEGO Tube</b>
+<input id="searchBar" placeholder="Search">
+<button onclick="openProfile()">👤</button>
+</header>
+
+<div class="container" id="mainContainer">
+<div class="sidebar">
+<button onclick="goHome()">🏠 Home</button>
+<button onclick="openChannel(currentUser)">📺 My Channel</button>
+<button onclick="openLive()">🔴 Go Live</button>
+<button onclick="openProfile()">👤 Profile</button>
+</div>
+<div id="feed"></div>
+</div>
+
+<!-- PROFILE -->
+<div id="profilePage" class="page">
+<h2>Sign In</h2>
+<input id="usernameInput" placeholder="Your name">
+<button onclick="signIn()">Sign In</button>
+</div>
+
+<!-- CHANNEL -->
+<div id="channelPage" class="page">
+<h2 id="channelTitle"></h2>
+<p id="subCount"></p>
+<input type="file" id="videoUpload" accept="video/*">
+<input type="text" id="videoName" placeholder="Video title">
+<input type="file" id="thumbUpload" accept="image/*">
+<button onclick="uploadVideo()">Upload Video</button>
+<div id="channelVideos"></div>
+</div>
+
+<!-- VIDEO -->
+<div id="videoPage" class="page">
+<h2 id="videoTitle"></h2>
+<video id="videoPlayer" controls style="max-width:90%"></video>
+<p id="videoStats"></p>
+<button onclick="likeVideo()">❤️ Like (<span id="likeCount"></span>)</button>
+<h3>Comments</h3>
+<div id="commentsBox"></div>
+<input id="commentInput" placeholder="Write comment">
+<button onclick="addComment()">Post</button>
+</div>
+
+<!-- LIVE -->
+<div id="livePage" class="page">
+<h2>🔴 LIVE STREAM</h2>
+
+<div class="liveBox">
+<video id="livePreview" autoplay muted style="max-width:90%"></video>
+<p id="liveStatus">Offline</p>
+<p>👀 Viewers: <span id="viewerCount">0</span></p>
+<button onclick="startLive()">Start Stream</button>
+<button onclick="stopLive()">End Stream</button>
+<button onclick="donate()">🎁 Donate</button>
+</div>
+
+<h3>💬 Live Chat</h3>
+<div id="liveChatBox"></div>
+<input id="liveChatInput" placeholder="Type message">
+<button onclick="sendLiveChat()">Send</button>
+</div>
+
+<script>
+let currentUser="", currentChannel="", currentVideoIndex=0;
+
+/* PAGE SYSTEM */
+function hideAll(){
+mainContainer.style.display="none";
+profilePage.style.display="none";
+channelPage.style.display="none";
+videoPage.style.display="none";
+livePage.style.display="none";
+}
+function goHome(){hideAll();mainContainer.style.display="flex";loadHome();}
+function openProfile(){hideAll();profilePage.style.display="block";}
+
+/* USER */
+function signIn(){
+currentUser=usernameInput.value;
+let users=JSON.parse(localStorage.getItem("users")||"{}");
+if(!users[currentUser]) users[currentUser]={};
+localStorage.setItem("users",JSON.stringify(users));
+alert("Signed in!");
+goHome();
+}
+
+function createChannelIfMissing(){
+let channels=JSON.parse(localStorage.getItem("channels")||"{}");
+if(!channels[currentUser]){
+channels[currentUser]={name:currentUser,subs:0,videos:[]};
+localStorage.setItem("channels",JSON.stringify(channels));
+}
+}
+
+/* CHANNEL */
+function openChannel(name){
+createChannelIfMissing();
+currentChannel=name;
+hideAll();
+channelPage.style.display="block";
+let channels=JSON.parse(localStorage.getItem("channels"));
+channelTitle.innerText=name+"'s Channel";
+subCount.innerText="Subscribers: "+channels[name].subs;
+loadChannelVideos();
+}
+
+function uploadVideo(){
+let videoFile=videoUpload.files[0];
+let thumbFile=thumbUpload.files[0];
+let reader=new FileReader();
+let thumbReader=new FileReader();
+
+reader.onload=e=>{
+thumbReader.onload=t=>{
+let channels=JSON.parse(localStorage.getItem("channels"));
+channels[currentUser].videos.push({name:videoName.value,data:e.target.result,thumb:t.target.result,views:0,likes:0,comments:[]});
+localStorage.setItem("channels",JSON.stringify(channels));
+loadChannelVideos();
+}
+thumbReader.readAsDataURL(thumbFile);
+}
+reader.readAsDataURL(videoFile);
+}
+
+function loadChannelVideos(){
+channelVideos.innerHTML="";
+let channels=JSON.parse(localStorage.getItem("channels"));
+channels[currentChannel].videos.forEach((v,i)=>{
+let div=document.createElement("div");
+div.className="video";
+div.innerHTML=`<img src="${v.thumb}"><br>${v.name}`;
+div.onclick=()=>openVideo(i);
+channelVideos.appendChild(div);
+});
+}
+
+/* VIDEO */
+function openVideo(i){
+let channels=JSON.parse(localStorage.getItem("channels"));
+let v=channels[currentChannel].videos[i];
+v.views++;
+currentVideoIndex=i;
+localStorage.setItem("channels",JSON.stringify(channels));
+videoTitle.innerText=v.name;
+videoPlayer.src=v.data;
+videoStats.innerText=v.views+" views";
+likeCount.innerText=v.likes;
+loadComments();
+hideAll();
+videoPage.style.display="block";
+}
+
+function likeVideo(){
+let channels=JSON.parse(localStorage.getItem("channels"));
+channels[currentChannel].videos[currentVideoIndex].likes++;
+localStorage.setItem("channels",JSON.stringify(channels));
+likeCount.innerText=channels[currentChannel].videos[currentVideoIndex].likes;
+}
+
+/* COMMENTS */
+function loadComments(){
+commentsBox.innerHTML="";
+let channels=JSON.parse(localStorage.getItem("channels"));
+channels[currentChannel].videos[currentVideoIndex].comments.forEach(c=>{
+let d=document.createElement("div");
+d.className="comment";
+d.innerText=c;
+commentsBox.appendChild(d);
+});
+}
+function addComment(){
+let channels=JSON.parse(localStorage.getItem("channels"));
+channels[currentChannel].videos[currentVideoIndex].comments.push(commentInput.value);
+localStorage.setItem("channels",JSON.stringify(channels));
+commentInput.value="";
+loadComments();
+}
+
+/* HOME */
+function loadHome(){
+feed.innerHTML="<h2>Home Feed</h2>";
+let channels=JSON.parse(localStorage.getItem("channels")||"{}");
+for(let ch in channels){
+channels[ch].videos.forEach((v,i)=>{
+let div=document.createElement("div");
+div.className="video";
+div.innerHTML=`<img src="${v.thumb}"><br>${v.name} • ${ch}`;
+div.onclick=()=>{currentChannel=ch;openVideo(i)};
+feed.appendChild(div);
+});
+}
+}
+
+/* 🔴 LIVE SYSTEM */
+let liveStream, recorder, liveChunks=[], viewers=0, viewerInterval;
+
+function openLive(){hideAll();livePage.style.display="block";}
+
+async function startLive(){
+liveStream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+livePreview.srcObject=liveStream;
+liveStatus.innerText="LIVE 🔴";
+recorder=new MediaRecorder(liveStream);
+recorder.ondataavailable=e=>liveChunks.push(e.data);
+recorder.start();
+
+viewerInterval=setInterval(()=>{
+viewers+=Math.floor(Math.random()*3);
+viewerCount.innerText=viewers;
+},2000);
+}
+
+function stopLive(){
+recorder.stop();
+liveStream.getTracks().forEach(t=>t.stop());
+clearInterval(viewerInterval);
+liveStatus.innerText="Stream Ended";
+saveLiveVideo();
+}
+
+function saveLiveVideo(){
+let blob=new Blob(liveChunks,{type:"video/webm"});
+let reader=new FileReader();
+reader.onload=e=>{
+let channels=JSON.parse(localStorage.getItem("channels"));
+channels[currentUser].videos.push({name:"Live Recording",data:e.target.result,thumb:"",views:0,likes:0,comments:[]});
+localStorage.setItem("channels",JSON.stringify(channels));
+liveChunks=[];
+alert("Live saved!");
+};
+reader.readAsDataURL(blob);
+}
+
+/* LIVE CHAT */
+function sendLiveChat(){
+let msg=document.createElement("div");
+msg.className="comment";
+msg.innerText=currentUser+": "+liveChatInput.value;
+liveChatBox.appendChild(msg);
+liveChatInput.value="";
+}
+
+/* DONATE */
+function donate(){
+alert("💰 Donation received! (Demo)");
+}
+
+goHome();
+</script>
+</body>
+</html>
