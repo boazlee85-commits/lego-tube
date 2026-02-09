@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Watch Live</title>
+  <style>
+    body { background:black; color:white; text-align:center; }
+    video { width:90%; max-width:500px; margin-top:20px; }
+    #chat { height:150px; overflow-y:auto; border:1px solid white; margin:10px; padding:5px; }
+  </style>
+</head>
+<body>
+
+<h1>🔴 LIVE STREAM</h1>
+<video id="video" autoplay playsinline></video>
+
+<div id="chat"></div>
+<input id="msg" placeholder="Type message...">
+<button onclick="sendMsg()">Send</button>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+const video = document.getElementById("video");
+const chat = document.getElementById("chat");
+
+socket.emit("watcher");
+
+socket.on("chat", msg => {
+  chat.innerHTML += "<div>"+msg+"</div>";
+});
+
+function sendMsg() {
+  const m = document.getElementById("msg").value;
+  socket.emit("chat", m);
+  document.getElementById("msg").value="";
+}
+</script>
+
+</body>
+</html>

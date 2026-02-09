@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Go Live</title>
+  <style>
+    body { background: black; color: white; text-align: center; }
+    video { width: 90%; max-width: 500px; margin-top: 20px; }
+    button { padding: 10px 20px; margin: 10px; }
+  </style>
+</head>
+<body>
+
+<h1>🔴 You Are Live</h1>
+<button id="start">Start Stream</button>
+<button id="switch">Switch Camera</button>
+
+<video id="video" autoplay playsinline muted></video>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+const video = document.getElementById("video");
+let stream;
+let facing = "user";
+
+async function startStream() {
+  stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: true });
+  video.srcObject = stream;
+  socket.emit("broadcaster");
+}
+
+async function switchCam() {
+  facing = facing === "user" ? "environment" : "user";
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  startStream();
+}
+
+document.getElementById("start").onclick = startStream;
+document.getElementById("switch").onclick = switchCam;
+</script>
+
+</body>
+</html>
