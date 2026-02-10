@@ -11,7 +11,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
 
-/* LIVE STREAM SYSTEM */
 let broadcaster = null;
 
 io.on("connection", socket => {
@@ -23,9 +22,7 @@ io.on("connection", socket => {
   });
 
   socket.on("watcher", () => {
-    if (broadcaster) {
-      socket.to(broadcaster).emit("watcher", socket.id);
-    }
+    if (broadcaster) socket.to(broadcaster).emit("watcher", socket.id);
   });
 
   socket.on("disconnect", () => {
