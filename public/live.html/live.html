@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Go Live</title>
+</head>
+<body>
+  <h1>LIVE</h1>
+  <video id="video" autoplay playsinline muted></video>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const video = document.getElementById("video");
+    const peers = {};
+
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      .then(stream => {
+        video.srcObject = stream;
+        socket.emit("broadcaster");
+
+        socket.on("watcher", id => {
+          const peer = new RTCPeerConnection();
+
+          peers[id] = peer;
+          stream.getTracks().forEach(track => peer.addTrack(track, stream));
+
+          peer.onicecandidate = event => {
+            if (event.candidate) {
+              socket.emit("candidate", id, event.candidate);
+            }
+          };
+
+          peer.createOffer()
+            .then(sdp => peer.setLocalDescription(sdp))
+            .then(() => {
+              socket.emit("offer", id, peer.localDescription);
+            });
+        });
+
+        socket.on("answer", (id, description) => {
+          peers[id].setRemoteDescription(description);
+        });
+
+        socket.on("candidate", (id, candidate) => {
+          peers[id].addIceCandidate(new RTCIceCandidate(candidate));
+        });
+      });
+  </script>
+</body>
+</html>

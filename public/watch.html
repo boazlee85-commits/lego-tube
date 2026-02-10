@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Watch Live</title>
+</head>
+<body>
+  <h1>Watching</h1>
+  <video id="video" autoplay playsinline></video>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const video = document.getElementById("video");
+    const peer = new RTCPeerConnection();
+
+    socket.emit("watcher");
+
+    peer.ontrack = event => {
+      video.srcObject = event.streams[0];
+    };
+
+    peer.onicecandidate = event => {
+      if (event.candidate) {
+        socket.emit("candidate", broadcaster, event.candidate);
+      }
+    };
+
+    socket.on("offer", (id, description) => {
+      peer.setRemoteDescription(description)
+        .then(() => peer.createAnswer())
+        .then(sdp => peer.setLocalDescription(sdp))
+        .then(() => {
+          socket.emit("answer", id, peer.localDescription);
+        });
+    });
+
+    socket.on("candidate", (id, candidate) => {
+      peer.addIceCandidate(new RTCIceCandidate(candidate));
+    });
+  </script>
+</body>
+</html>
