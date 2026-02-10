@@ -2,42 +2,49 @@
 <html>
 <head>
   <title>Go Live</title>
-  <style>
-    body { background: black; color: white; text-align: center; }
-    video { width: 90%; max-width: 500px; margin-top: 20px; }
-    button { padding: 10px 20px; margin: 10px; }
-  </style>
 </head>
 <body>
+  <h1>LIVE</h1>
+  <video id="video" autoplay playsinline muted></video>
 
-<h1>🔴 You Are Live</h1>
-<button id="start">Start Stream</button>
-<button id="switch">Switch Camera</button>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const video = document.getElementById("video");
+    const peers = {};
 
-<video id="video" autoplay playsinline muted></video>
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      .then(stream => {
+        video.srcObject = stream;
+        socket.emit("broadcaster");
 
-<script src="/socket.io/socket.io.js"></script>
-<script>
-const socket = io();
-const video = document.getElementById("video");
-let stream;
-let facing = "user";
+        socket.on("watcher", id => {
+          const peer = new RTCPeerConnection();
 
-async function startStream() {
-  stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: true });
-  video.srcObject = stream;
-  socket.emit("broadcaster");
-}
+          peers[id] = peer;
+          stream.getTracks().forEach(track => peer.addTrack(track, stream));
 
-async function switchCam() {
-  facing = facing === "user" ? "environment" : "user";
-  if (stream) stream.getTracks().forEach(t => t.stop());
-  startStream();
-}
+          peer.onicecandidate = event => {
+            if (event.candidate) {
+              socket.emit("candidate", id, event.candidate);
+            }
+          };
 
-document.getElementById("start").onclick = startStream;
-document.getElementById("switch").onclick = switchCam;
-</script>
+          peer.createOffer()
+            .then(sdp => peer.setLocalDescription(sdp))
+            .then(() => {
+              socket.emit("offer", id, peer.localDescription);
+            });
+        });
 
+        socket.on("answer", (id, description) => {
+          peers[id].setRemoteDescription(description);
+        });
+
+        socket.on("candidate", (id, candidate) => {
+          peers[id].addIceCandidate(new RTCIceCandidate(candidate));
+        });
+      });
+  </script>
 </body>
 </html>
