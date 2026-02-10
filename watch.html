@@ -2,39 +2,41 @@
 <html>
 <head>
   <title>Watch Live</title>
-  <style>
-    body { background:black; color:white; text-align:center; }
-    video { width:90%; max-width:500px; margin-top:20px; }
-    #chat { height:150px; overflow-y:auto; border:1px solid white; margin:10px; padding:5px; }
-  </style>
 </head>
 <body>
+  <h1>Watching</h1>
+  <video id="video" autoplay playsinline></video>
 
-<h1>🔴 LIVE STREAM</h1>
-<video id="video" autoplay playsinline></video>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const video = document.getElementById("video");
+    const peer = new RTCPeerConnection();
 
-<div id="chat"></div>
-<input id="msg" placeholder="Type message...">
-<button onclick="sendMsg()">Send</button>
+    socket.emit("watcher");
 
-<script src="/socket.io/socket.io.js"></script>
-<script>
-const socket = io();
-const video = document.getElementById("video");
-const chat = document.getElementById("chat");
+    peer.ontrack = event => {
+      video.srcObject = event.streams[0];
+    };
 
-socket.emit("watcher");
+    peer.onicecandidate = event => {
+      if (event.candidate) {
+        socket.emit("candidate", broadcaster, event.candidate);
+      }
+    };
 
-socket.on("chat", msg => {
-  chat.innerHTML += "<div>"+msg+"</div>";
-});
+    socket.on("offer", (id, description) => {
+      peer.setRemoteDescription(description)
+        .then(() => peer.createAnswer())
+        .then(sdp => peer.setLocalDescription(sdp))
+        .then(() => {
+          socket.emit("answer", id, peer.localDescription);
+        });
+    });
 
-function sendMsg() {
-  const m = document.getElementById("msg").value;
-  socket.emit("chat", m);
-  document.getElementById("msg").value="";
-}
-</script>
-
+    socket.on("candidate", (id, candidate) => {
+      peer.addIceCandidate(new RTCIceCandidate(candidate));
+    });
+  </script>
 </body>
 </html>
