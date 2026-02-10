@@ -1,32 +1,31 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const cors = require("cors");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
-app.use(cors());
 app.use(express.static("public"));
 
-let broadcaster = null;
+let broadcaster;
 
-/* SOCKET SYSTEM */
 io.on("connection", socket => {
-  console.log("User connected:", socket.id);
 
+  // Streamer starts
   socket.on("broadcaster", () => {
     broadcaster = socket.id;
     socket.broadcast.emit("broadcaster");
   });
 
+  // Viewer joins
   socket.on("watcher", () => {
     if (broadcaster) {
       socket.to(broadcaster).emit("watcher", socket.id);
     }
   });
 
+  // WebRTC signals
   socket.on("offer", (id, message) => {
     socket.to(id).emit("offer", socket.id, message);
   });
@@ -42,6 +41,7 @@ io.on("connection", socket => {
   socket.on("disconnect", () => {
     socket.broadcast.emit("disconnectPeer", socket.id);
   });
+
 });
 
 server.listen(3000, () => console.log("Server running"));
