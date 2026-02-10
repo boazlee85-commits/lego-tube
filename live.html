@@ -1,50 +1,42 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Go Live</title>
+  <title>LEGO Tube - Live</title>
+  <style>
+    body { font-family: Arial; text-align: center; background: #111; color: white; }
+    video { width: 70%; margin-top: 20px; border: 3px solid white; }
+    button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+  </style>
 </head>
 <body>
-  <h1>LIVE</h1>
+
+  <h1>🔴 LIVE STREAM</h1>
+
   <video id="video" autoplay playsinline muted></video>
+  <br>
+  <button id="startBtn">Start Camera</button>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
     const video = document.getElementById("video");
-    const peers = {};
+    const startBtn = document.getElementById("startBtn");
 
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-      .then(stream => {
+    startBtn.onclick = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         video.srcObject = stream;
         socket.emit("broadcaster");
+      } catch (err) {
+        alert("Camera blocked or not available");
+        console.error(err);
+      }
+    };
 
-        socket.on("watcher", id => {
-          const peer = new RTCPeerConnection();
-
-          peers[id] = peer;
-          stream.getTracks().forEach(track => peer.addTrack(track, stream));
-
-          peer.onicecandidate = event => {
-            if (event.candidate) {
-              socket.emit("candidate", id, event.candidate);
-            }
-          };
-
-          peer.createOffer()
-            .then(sdp => peer.setLocalDescription(sdp))
-            .then(() => {
-              socket.emit("offer", id, peer.localDescription);
-            });
-        });
-
-        socket.on("answer", (id, description) => {
-          peers[id].setRemoteDescription(description);
-        });
-
-        socket.on("candidate", (id, candidate) => {
-          peers[id].addIceCandidate(new RTCIceCandidate(candidate));
-        });
-      });
+    socket.on("watcher", id => {
+      console.log("Viewer joined:", id);
+    });
   </script>
+
 </body>
 </html>
