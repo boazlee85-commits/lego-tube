@@ -1,32 +1,41 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const cors = require("cors");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server);
 
-app.use(cors());
-app.use(express.json());
+// THIS MAKES HTML FILES WORK
 app.use(express.static("public"));
 
-let broadcaster = null;
+let streamerSocket = null;
 
-io.on("connection", socket => {
-  console.log("User connected:", socket.id);
+io.on("connection", (socket) => {
+  console.log("User connected");
 
-  socket.on("broadcaster", () => {
-    broadcaster = socket.id;
-    socket.broadcast.emit("broadcaster");
+  socket.on("start-stream", () => {
+    streamerSocket = socket.id;
+    socket.broadcast.emit("stream-started");
   });
 
-  socket.on("watcher", () => {
-    if (broadcaster) socket.to(broadcaster).emit("watcher", socket.id);
+  socket.on("offer", (data) => {
+    socket.broadcast.emit("offer", data);
+  });
+
+  socket.on("answer", (data) => {
+    socket.broadcast.emit("answer", data);
+  });
+
+  socket.on("ice-candidate", (data) => {
+    socket.broadcast.emit("ice-candidate", data);
   });
 
   socket.on("disconnect", () => {
-    socket.broadcast.emit("disconnectPeer", socket.id);
+    if (socket.id === streamerSocket) {
+      streamerSocket = null;
+      socket.broadcast.emit("stream-ended");
+    }
   });
 });
 
